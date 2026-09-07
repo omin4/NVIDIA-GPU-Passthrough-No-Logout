@@ -1,24 +1,24 @@
-## 📌 Table of Contents
-* [Goal](#-goal)
-* [Prerequisites](#-prerequisites)
-* [1. BIOS/UEFI Settings](#-step-1-biosuefi-settings)
-* [2. Physical Monitor Connection](#-step-2-physical-monitor-connection)
-* [3. Kernel Parameters](#️-step-3-kernel-parameters)
-* [4. Configure Looking Glass Client on Arch](#-step-4-configure-looking-glass-client-on-arch)
-* [5. Configure Looking Glass IVSHMEM in VM XML ](#-step-5-configure-looking-glass-ivshmem-in-vm-xml)
-* [6. Windows Guest Configuration](#step-6-windows-guest-configuration)
-* [7. Before Running the Scripts](#️-step-7-before-running-the-scripts)
-* [8. The Scripts (Wrapper + hook scripts)](#-step-8-the-scripts-wrapper--hook-scripts)
-* [9. Additional VM Tuning](#️-step-9-additional-vm-tuning)
-* [10. Workflow Configuration and Running Looking Glass Client](#-step-10-workflow-configuration-and-running-looking-glass-client)
-* [Final Summary / Check list](#-final-summary--check-list)
-* [Troubleshooting Tips](#-troubleshooting-tips)
-* [Test the Workflow](#-test-the-workflow)
-
----
+## Contents
+- [Overview](#-Overview)
+- [Goal](#-goal)
+- [Prerequisites](#-prerequisites)
+- [1. BIOS/UEFI Settings](#-step-1-biosuefi-settings)
+- [2. Physical Monitor Connection](#-step-2-physical-monitor-connection)
+- [3. Kernel Parameters](#️-step-3-kernel-parameters)
+- [4. Configure Looking Glass Client on Arch](#-step-4-configure-looking-glass-client-on-arch)
+- [5. Configure Looking Glass IVSHMEM in VM XML ](#-step-5-configure-looking-glass-ivshmem-in-vm-xml)
+- [6. Windows Guest Configuration](#step-6-windows-guest-configuration)
+- [7. Before Running the Scripts](#️-step-7-before-running-the-scripts)
+- [8. The Scripts (Wrapper + hook scripts)](#-step-8-the-scripts-wrapper--hook-scripts)
+- [9. Additional VM Tuning](#️-step-9-additional-vm-tuning)
+- [10. Workflow Configuration and Running Looking Glass Client](#-step-10-workflow-configuration-and-running-looking-glass-client)
+- [Final Summary / Check list](#-final-summary--check-list)
+- [Troubleshooting Tips](#-troubleshooting-tips)
+- [Test the Workflow](#-test-the-workflow)
 
 </br>
 
+## Overview
 In this guide we will learn how to do GPU passthrough with an ***iGPU + dGPU*** setup without being logged out of your current DE/WM session.
 
 The scripts in this guide are meant for **Hybrid Graphics** systems. The scripts and guides were inspired by the Single GPU Passthrough scripts over in the *[RisingPrisimTV](https://gitlab.com/risingprismtv/single-gpu-passthrough)* guide, which is meant for a single--literally only 1 GPU--setup. 
@@ -31,7 +31,7 @@ Since we have integrated graphics, *our setup is much more flexible and doesn't 
 >       - https://passthroughpo.st/simple-per-vm-libvirt-hooks-with-the-vfio-tools-hook-helper/
 >       - https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF
 >       - https://gitlab.com/risingprismtv/single-gpu-passthrough/-/wikis/home
-> ---
+>
 
 </br>
 
@@ -73,7 +73,7 @@ A frictionless workflow where you can:
 > 
 > 3. **Above 4G Decoding** tells the _Linux Kernel_ that it is allowed to map the GPU's memory above the 4GB boundary.
 > 4. **Above 4GB MMIO BIOS Assignment** tells the _Motherboard BIOS_ to actually allocate that physical address space during the boot process.
-> ---
+>
 
 </br>
 
@@ -107,7 +107,7 @@ A frictionless workflow where you can:
 > NOTES:
 > - we need to remove `nvidia_drm.modeset=1` from the kernel parameters to prevent KWin from holding the dGPU. Without this step, the VM will hang.
 > - Do **NOT** add `vfio-pci.ids=...` or any VFIO binding parameters here. We want the `nvidia` driver to load normally at boot so you can game on the host. The hook scripts will handle dynamic switching.
-> ---
+>
 
 5. If you use secure boot, check that EFI images are still signed.
 ```bash
@@ -186,7 +186,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 >     
 >     sudo stdbuf -oL -eL bash -x /etc/libvirt/hooks/qemu.d/win11/release/end/vfio-teardown > endhook.log
 >     ```
-> ---
+>
 
 **PREFACE:** The **reality** is, even though we set `nvidia_drm modeset=0`, apps and other background processes will still probe and target the NVIDIA device files (`/dev/nvidia0` and `/dev/nvidia-uvm`, etc) for things such as video rendering or AI computation. An infamous example is any Electron app e.g. Obsidian, which uses hardware acceleration by default (you can disable in the appearance settings).
 
@@ -251,7 +251,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 > 1. You can follow the  *RisingPrisim* method for settings up the hook scripts for the most part, but some parts are outated, such as:
 >     1. They enable the legacy `libvirtd` daemon instead of the newer, modular `virtqemud` daemon. This can cause problems down the line.
 >     2. I use my own edited `qemu` file and `nosleep` file.)
-> ---
+>
 
 5. Add ALL of your NVIDIA PCI devices to your VM. This can be done easily through `virt-manager`.
 
@@ -271,7 +271,7 @@ ___
 >     ```
 >     systemctl status libvirt-nosleep@<vm-name>.service
 >     ```
-> ---
+>
 
 </br>
 
@@ -306,7 +306,7 @@ ___
 >    ```
 > 5. **(WARNING)** Don't place multiple executable files in the hook folders (e.g. `/release/end/teardown.bak`), as the qemu file will attempt to execute all files in this dir. 
 >
-> --- 
+> 
 
 </br>
 
@@ -322,7 +322,7 @@ ___
 >     ```
 >     export LIBVIRT_DEFAULT_URI="qemu:///system"
 >     ```
-> ---
+>
 
 1. Add the **STOP/Teardown Alias** to your `.bashrc`:
 
@@ -353,7 +353,7 @@ alias vmstop='virsh -c qemu:///system shutdown win11-4 && echo "⏳ Sending shut
 > **Possible User Error 4:** Didn't make the `qemu` file executable.
 > 
 > - **Added a "Filter"** to the script to protect our display-manager and other system services from being killed by the "auto-kill" feature, and instead killed in a more controlled manner by the "nuclear" option codeblock. 
-> ---
+>
 
 </br>
 
@@ -366,10 +366,8 @@ ___
 > NOTES: 
 > - **Check script logs:** `tail -f /var/log/libvirt/vfio-hook.log`
 > - This script has a **Safety Check** that prevents kernel panics. It checks to see if any NVIDIA modules are still loaded *(like in the case of kwin holding `nvidia_drm` when I had `nvidia_drm.modeset=1` in kernel parameters)*. If a background app is still using the GPU, the script attempt to kill that process, if it's not able to, it logs you out of your session by killing the display-manager (preventing the hang). Last, it attempts to abort with `exit 1` (this will likely cause a virtqemud/libvirtd hang because of a libvirt bug?)
-> ---
+>
 ___
-
-</br>
 
 ### ⏹️ End Script
 > - started by an alias in `.bashrc`

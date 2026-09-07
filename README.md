@@ -261,17 +261,15 @@ ___
 
 </br>
 
-> [qemu file->](qemu)
+> [qemu file ->](qemu)
 
 > __NOTE:__ Make executable: `sudo chmod +x /etc/libvirt/hooks/qemu`
-
-___
 
 </br>
 
 ---
 
-## 📜 Step 8: The Simplified Scripts & Wrapper Script
+## 📜 Step 8: The Scripts (Wrapper + hook scripts)
 
 > **NOTES:**
 >
@@ -300,7 +298,7 @@ ___
 </br>
 
 
-### 1. Wrapper Script
+### Wrapper Script
 
 > **NOTES:**
 > - **DON'T** run the wrapper script with `sudo`
@@ -321,11 +319,10 @@ alias vmstop='virsh -c qemu:///system shutdown win11-4 && echo "⏳ Sending shut
 ```
 
 2. Add the **Start Script Wrapper** to your bin path and name it `vmstart`
+    > ___
+    > [vmstart ->](vmstart)
+    > ___
 
-___
-> [vmstart ->](vmstart)
-
-___
 
 ### ▶️ Start Script
 
@@ -342,10 +339,10 @@ ___
 >     - Libvirt handles the vfio-pci binding automatically via modern `<hostdev ... managed='yes'>` in the VM XML. Thus the `virsh nodedev-detach` command is redundant and only clutters logs when it fails.
 > **Possible User Error 4:** Didn't make the `qemu` file executable.
 > 
+> - **Added a "Filter"** to the script to protect our display-manager and other system services from being killed by the "auto-kill" feature, and instead killed in a more controlled manner by the "nuclear" option codeblock. 
 > ---
 
-- **Added a "Filter"** to the script to protect our display-manager and other system services from being killed by the "auto-kill" feature, and instead killed in a more controlled manner by the "nuclear" option codeblock. 
-
+</br>
 
 Replace the contents of the *vfio-startup* with this streamlined version: 
 `/etc/libvirt/hooks/qemu.d/win11/prepare/begin/vfio-startup` 
@@ -371,7 +368,6 @@ It reattaches the GPU and reloads the Nvidia driver -- nothing more.
 
 ___
 >[vfio-teardown ->](vfio-teardown)
-
 ___
 
 

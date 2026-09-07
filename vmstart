@@ -2,13 +2,15 @@
 
 VM_NAME="win11-4"
 LOGFILE="/var/log/libvirt/vfio-hook.log"
+# Ensure the log file is writable by your user
+touch "$LOGFILE" 2>/dev/null 
 log() { echo "$(date +"%m/%d/%Y %R:%S :") [WRAPPER] $1" | tee -a "$LOGFILE"; }
 
 # 1. Check if VM is already running (Using System URI)
 STATE=$(virsh -c qemu:///system domstate "$VM_NAME" 2>/dev/null)
 if [[ "$STATE" == "running" ]]; then
     echo "✅ VM is already running. Launching Looking Glass..."
-    looking-glass-client #-C ~/.config/looking-glass/client.ini
+    looking-glass-client -C ~/.config/looking-glass/client.ini
     exit 0
 fi
 
@@ -79,4 +81,4 @@ sleep 16
 
 # 6. Launch Client
 echo "🚀 Launching Looking Glass..."
-looking-glass-client #-C ~/.config/looking-glass/client.ini
+looking-glass-client -C ~/.config/looking-glass/client.ini

@@ -1,3 +1,23 @@
+## 📌 Table of Contents
+* [Goal](#-goal)
+* [Prerequisites](#-prerequisites)
+* [1. BIOS/UEFI Settings](#-step-1-biosuefi-settings)
+* [2. Physical Monitor Connection](#-step-2-physical-monitor-connection)
+* [3. Kernel Parameters](#️-step-3-kernel-parameters)
+* [4. Configure Looking Glass Client on Arch](#-step-4-configure-looking-glass-client-on-arch)
+* [5. Configure Looking Glass IVSHMEM in VM XML ](#-step-5-configure-looking-glass-ivshmem-in-vm-xml)
+* [6. Windows Guest Configuration](#step-6-windows-guest-configuration)
+* [7. Before Running the Scripts](#️-step-7-before-running-the-scripts)
+* [8. The Scripts (Wrapper + hook scripts)](#-step-8-the-scripts-wrapper--hook-scripts)
+* [9. Additional VM Tuning](#️-step-9-additional-vm-tuning)
+* [10. Workflow Configuration and Running Looking Glass Client](#-step-10-workflow-configuration-and-running-looking-glass-client)
+* [Final Summary / Check list](#-final-summary--check-list)
+* [Troubleshooting Tips](#-troubleshooting-tips)
+* [Test the Workflow](#-test-the-workflow)
+
+---
+
+</br>
 
 In this guide we will learn how to do GPU passthrough with an ***iGPU + dGPU*** setup without being logged out of your current DE/WM session.
 
@@ -15,7 +35,7 @@ Since we have integrated graphics, *our setup is much more flexible and doesn't 
 
 </br>
 
-> ---
+---
 
 ## 🎯 Goal
 A frictionless workflow where you can:
@@ -59,7 +79,6 @@ A frictionless workflow where you can:
 
 ---
 
-
 ## 🔌 Step 2: Physical Monitor Connection
 *   **iGPU Monitor:** Plug your monitors to the iGPU only. In other words, into the **motherboard's HDMI/DisplayPort**.
 * **dGPU Monitor:** Unplug all monitors. 
@@ -101,7 +120,6 @@ sudo sbctl verify
 
 ---
 
-
 ## ⚙️ Step 3.5: (OPTIONAL) Hiding Your dGPU-Connected Monitor and Avoiding the Windows "Headless GPU" Problem
 
 > **NOTE:** While this is technically "optional," If you continue WITHOUT a monitor, you'll get a headless GPU scenario where Windows sees the GPU but doesn't use it. It's only optional in the sense that, you can get your dGPU to a state where nothing is holding it by unplugging everything.
@@ -120,7 +138,6 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
     2. `/etc/default/grub`  
     > NOTE: In my setup grub is just a boot menu and doesn't set kernel parameters, and having them in `mkinitcpio.conf` seems to not matter... BUT - to avoid  future problems might as well remove them.
 
-
 2. **(CRUCIAL)** Set `nvidia_drm modeset=0` and `fbdev=0` in `/etc/modprobe.d/nvidia.conf` 
 -- this effectively disables these modules.
 
@@ -135,7 +152,6 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ---
 
-
 ## 🪟 Step 4: Configure Looking Glass Client on Arch
 
 []
@@ -143,7 +159,6 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 </br>
 
 ---
-
 
 ## 🪟 Step 5: Configure Looking Glass IVSHMEM in VM XML
 
@@ -153,8 +168,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ---
 
-
-## 🎛️ Step 6: Windows Guest Configuration
+## Step 6: Windows Guest Configuration
 
 []
 
@@ -162,7 +176,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ---
 
-## 🛑⏸️ Step 7. Before Running the Scripts
+## ⏸️ Step 7. Before Running the Scripts
 
 > NOTES: 
 > 1. Enable `sysrq` keys for REISUB just in case. Detaching a graphics card can be finicky; things can happen.
@@ -183,7 +197,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
     2. `sudo fuser -v /dev/dri/card*`
     3.  `sudo fuser -v /dev/nvidia*`
     <details>
-    <summary><b> ...The output should look like this... </b></summary>
+    <summary><b> (Click to expand)...The output should look like this... </b></summary>
 
     ```bash
     $ nvidia-smi
@@ -218,7 +232,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 </br>
 
-2. **After running checks: **if something is using dGPU, **KILL IT!** (Apps, kwin, etc.) One way to achieve this is by using `fuser` to Kill processes accessing the device file.
+2. **After running checks:** if something is using dGPU, **KILL IT!** (Apps, kwin, etc.) One way to achieve this is by using `fuser` to Kill processes accessing the device file.
     ```bash
     sudo fuser -k /dev/nvidia* 
     sudo fuser -k /dev/dri/card<#>
@@ -292,11 +306,9 @@ ___
 >    ```
 > 5. **(WARNING)** Don't place multiple executable files in the hook folders (e.g. `/release/end/teardown.bak`), as the qemu file will attempt to execute all files in this dir. 
 >
-> ---
- 
+> --- 
 
 </br>
-
 
 ### Wrapper Script
 
@@ -323,6 +335,7 @@ alias vmstop='virsh -c qemu:///system shutdown win11-4 && echo "⏳ Sending shut
     > [vmstart ->](vmstart)
     > ___
 
+</br>
 
 ### ▶️ Start Script
 
@@ -370,13 +383,11 @@ ___
 >[vfio-teardown ->](vfio-teardown)
 ___
 
-
 </br>
 
 ---
 
-
-## 🔧⚙️ Step 9: Additional VM Tuning
+## ⚙️ Step 9: Additional VM Tuning
 
 []
 
@@ -384,8 +395,7 @@ ___
 
 ---
 
-
-## 🪟🏁 Step 10: Frictionless Workflow Configuration and Running Looking Glass Client
+## 📊🪟 Step 10: Workflow Configuration and Running Looking Glass Client
 
 > - We'll be using the `virsh` terminal command to start and stop the VM.
 
@@ -440,7 +450,6 @@ Mute Guest    : [ ~ ] + F10
 
 ---
 
-
 ## 🎉 Final Summary / Check list
 - [x] BIOS: IGD Primary
 - [x] Arch Host: KDE Plasma running on Intel iGPU, Nvidia driver idle
@@ -453,7 +462,6 @@ Mute Guest    : [ ~ ] + F10
 </br>
 
 ---
-
 
 ## 🚨 Troubleshooting Tips
 
@@ -482,8 +490,7 @@ Mute Guest    : [ ~ ] + F10
 
 ---
 
-
-## 🧪 Test the Workflow
+## Test the Workflow
 
 1. Open your Arch terminal and run `looking-glass-client`.
 

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+DATE=$(date +"%m/%d/%Y %R:%S :")
+LOGFILE="/var/log/libvirt/vfio-hook.log"
+log() { echo "$DATE $1" | tee -a "$LOGFILE"; }
+
+log "=== VM Stopped. Reattaching Nvidia GPU to Host ==="
+
+# NOTE: We DO NOT manually reattach PCI devices here.
+# Libvirt has already unbound them from vfio-pci and reattached them to the host drivers automatically.
+
+# Give the PCI bus a moment to settle after libvirt's automatic reattachment
+udevadm settle
+sleep 2
+
+# Reload Nvidia kernel modules (Only if not already loaded)
+if ! lsmod | grep -q "^nvidia "; then
+    log "Loading Nvidia kernel modules..."
+    modprobe i2c_nvidia_gpu 2>/dev/null
+    modprobe nvidia
+    modprobe nvidia_modeset
+    modprobe nvidia_drm
+    modprobe nvidia_uvm
+else
+    log "Nvidia modules already loaded. Skipping modprobe."
+fi
+
+# --- ADDITION: Restart Display Manager if it was stopped ---
+if [ -f /tmp/vfio_dm_stopped ]; then
+    log "Display Manager was stopped. Restarting to restore host GUI..."
+    systemctl start display-manager.service
+    rm -f /tmp/vfio_dm_stopped
+fi
+
+# Restart persistence daemon (Doesn't run on startup by default on Arch.)
+#systemctl start nvidia-persistenced 2>/dev/null
+
+log "=== Nvidia GPU successfully reattached. Ready for prime-run! ==="

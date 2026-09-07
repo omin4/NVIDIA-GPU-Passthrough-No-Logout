@@ -1,0 +1,35 @@
+# Logs and Outputs
+# --------------------------------------------------------------------
+*.log
+*.out
+*.err
+log/
+logs/
+
+# Runtime and Temporary Files
+# --------------------------------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Environment & Secrets
+# --------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.env
+auth.conf
+secrets/
+
+# Test Artifacts and Temporary Dumps
+# --------------------------------------------------------------------
+/test-results/
+/output/
+/tmp/
+
+# Operating System Files
+# --------------------------------------------------------------------
+.DS_Store
+Thumbs.db

@@ -1,0 +1,82 @@
+#!/bin/bash
+
+VM_NAME="win11-4"
+LOGFILE="/var/log/libvirt/vfio-hook.log"
+log() { echo "$(date +"%m/%d/%Y %R:%S :") [WRAPPER] $1" | tee -a "$LOGFILE"; }
+
+# 1. Check if VM is already running (Using System URI)
+STATE=$(virsh -c qemu:///system domstate "$VM_NAME" 2>/dev/null)
+if [[ "$STATE" == "running" ]]; then
+    echo "✅ VM is already running. Launching Looking Glass..."
+    looking-glass-client #-C ~/.config/looking-glass/client.ini
+    exit 0
+fi
+
+# 2. Identify Nvidia DRI card dynamically
+NVIDIA_DRI_CARD=""
+for card in /dev/dri/card*; do
+    if [ -e "/sys/class/drm/$(basename $card)/device/vendor" ]; then
+        vendor=$(cat "/sys/class/drm/$(basename $card)/device/vendor" 2>/dev/null)
+        if [[ "$vendor" == "0x10de" ]]; then
+            NVIDIA_DRI_CARD="$card"
+            break
+        fi
+    fi
+done
+
+# 3. PRE-FLIGHT SAFETY CHECKS (Runs BEFORE libvirt is touched)
+log "Running Pre-Flight Safety Checks..."
+ABORT=false
+
+# Check A: nvidia-smi processes (Compute/Gaming)
+if command -v nvidia-smi &> /dev/null; then
+    if ! nvidia-smi | grep -q "No running processes found"; then
+        echo "❌ ABORT: nvidia-smi reports active processes!"
+        nvidia-smi | tee -a "$LOGFILE"
+        ABORT=true
+    fi
+fi
+
+# Check B & C: fuser on device nodes (KWin/Wayland & Background apps)
+if command -v fuser &> /dev/null; then
+    # Check raw Nvidia nodes
+    if fuser -s /dev/nvidia* 2>/dev/null; then
+        echo "❌ ABORT: Processes are holding /dev/nvidia* open:"
+        fuser -v /dev/nvidia* 2>&1 | tee -a "$LOGFILE"
+        ABORT=true
+    fi
+    
+    # Check DRM node (KWin/Wayland)
+    if [ -n "$NVIDIA_DRI_CARD" ] && fuser -s "$NVIDIA_DRI_CARD" 2>/dev/null; then
+        echo "❌ ABORT: Processes (likely KWin/Wayland or Apps) are holding $NVIDIA_DRI_CARD open:"
+        fuser -v "$NVIDIA_DRI_CARD" 2>&1 | tee -a "$LOGFILE"
+        ABORT=true
+    fi
+fi
+
+# If ANY check failed, abort safely BEFORE touching modprobe
+if [ "$ABORT" = true ]; then
+    log "Wrapper Pre-Flight failed. Aborting before libvirt is invoked."
+    echo "---------------------------------------------------------"
+    echo "🛑 VM START ABORTED. Close the apps listed above and try again."
+    echo "---------------------------------------------------------"
+    exit 1 # Cleanly tells libvirt to cancel the VM start
+fi
+
+# 4. Start VM via virsh (Using System URI)
+log "Pre-Flight passed. Invoking virsh start..."
+echo "⏳ Starting VM via virsh..."
+virsh -c qemu:///system start "$VM_NAME"
+
+if [ $? -ne 0 ]; then
+    echo "❌ virsh start failed. Check /var/log/libvirt/vfio-hook.log"
+    exit 1
+fi
+
+# 5. Wait for Windows and Looking Glass Host to initialize
+echo "⏳ Waiting for Windows and Looking Glass to boot..."
+sleep 16
+
+# 6. Launch Client
+echo "🚀 Launching Looking Glass..."
+looking-glass-client #-C ~/.config/looking-glass/client.ini

@@ -1,0 +1,175 @@
+#!/bin/bash
+
+DATE=$(date +"%m/%d/%Y %R:%S :")
+LOGFILE="/var/log/libvirt/vfio-hook.log"
+log() { echo "$DATE $1" | tee -a "$LOGFILE"; }
+
+log "=== Starting VM Preparation (Hook Script) ==="
+
+# 1. Stop persistence daemon (holds NVIDIA devices /dev/nvidia*)
+# This background process keeps your NVIDIA graphics driver ready & loaded in memory,
+# which might be useful for heavy tasks like gaming or video editing on an iGPU setup. 
+# (NOTE: 'nvidia-persistenced.service' is NOT enabled by default on Arch Linux.)
+systemctl stop nvidia-persistenced 2>/dev/null
+sleep 1 
+
+# 2. Identify Nvidia DRI card dynamically (e.g., /dev/dri/card1)
+# We look through /dev/dri/card* and check the sysfs vendor ID (0x10de = Nvidia)
+NVIDIA_DRI_CARD=""
+for card in /dev/dri/card*; do
+    if [ -e "/sys/class/drm/$(basename $card)/device/vendor" ]; then
+        vendor=$(cat "/sys/class/drm/$(basename $card)/device/vendor" 2>/dev/null)
+        if [[ "$vendor" == "0x10de" ]]; then
+            NVIDIA_DRI_CARD="$card"
+            break
+        fi
+    fi
+done
+
+# 3. PRE-FLIGHT SAFETY CHECKS
+log "Running Hook Pre-Flight Safety Checks..."
+ABORT=false
+
+# Check A: nvidia-smi processes (Compute/Gaming)
+if command -v nvidia-smi &> /dev/null; then
+    if ! nvidia-smi | grep -q "No running processes found"; then
+        log "WARNING: nvidia-smi reports active processes!"
+        nvidia-smi | tee -a "$LOGFILE"
+        ABORT=true
+    fi
+fi
+
+# Check B & C: fuser on device nodes (KWin/Wayland & Background apps)
+if command -v fuser &> /dev/null; then
+    # Check raw Nvidia nodes
+    if fuser -s /dev/nvidia* 2>/dev/null; then
+        log "WARNING: Processes are holding /dev/nvidia* open:"
+        fuser -v /dev/nvidia* 2>&1 | tee -a "$LOGFILE"
+        ABORT=true
+    fi
+
+    # Check DRM node (KWin/Wayland)
+    if [ -n "$NVIDIA_DRI_CARD" ] && fuser -s "$NVIDIA_DRI_CARD" 2>/dev/null; then
+        log "WARNING: Processes are holding $NVIDIA_DRI_CARD open:"
+        fuser -v "$NVIDIA_DRI_CARD" 2>&1 | tee -a "$LOGFILE"
+        ABORT=true
+    fi
+fi
+
+# If ANY check failed, AUTO-KILL the culprits!
+if [ "$ABORT" = true ]; then
+    log "Attempting to auto-kill processes holding the GPU..."
+    
+    # Gather all PIDs holding NVIDIA or DRM devices
+    PIDS=$(fuser /dev/nvidia* "$NVIDIA_DRI_CARD" 2>/dev/null | tr -s ' ' '\n' | sort -u)
+    
+    # --- STEP 1: Graceful Kills with Compositor Safety Filter ---
+    # * We add a FILTER to avoid killing compositor & other system services suddenly.
+    # We want to control how our session is ended in cases where system files or kwin are
+    # holding the dGPU (e.g. dGPU-rendered sessions, No 'nvidia_drm modeset=0').
+    # * We identify Flatpaks via their cgroup and use `flatpak kill` to properly 
+    # tear down the sandbox and release inherited GPU file descriptors.
+    for PID in $PIDS; do
+        [ -z "$PID" ] || [ "$PID" == "1" ] && continue
+        
+        P_USER=$(ps -o user= -p "$PID" 2>/dev/null)
+        P_COMM=$(ps -o comm= -p "$PID" 2>/dev/null)
+        
+        # SAFETY FILTER: Protect Compositors and System Services from being assassinated
+        if [[ "$P_COMM" =~ ^(kwin_wayland|kwin_x11|plasmashell|Xorg|Xwayland|gnome-shell|mutter|sway|hyprland|systemd|systemd-logind|polkit|sddm|gdm|lightdm)$ ]]; then
+            log "Skipping protected system/compositor process: $P_COMM (PID: $PID)"
+            continue
+        fi
+
+        CGROUP=$(cat "/proc/$PID/cgroup" 2>/dev/null)
+        if [[ "$CGROUP" == *"flatpak"* ]]; then
+            if [[ "$CGROUP" =~ app-flatpak-(.*)-[0-9]+\.scope ]]; then
+                APP_ID="${BASH_REMATCH[1]}"
+                if [ -n "$P_USER" ] && [ -n "$APP_ID" ] && command -v flatpak &> /dev/null; then
+                    log "Found Flatpak: $APP_ID (User: $P_USER). Sending graceful kill..."
+                    sudo -u "$P_USER" XDG_RUNTIME_DIR="/run/user/$(id -u "$P_USER")" flatpak kill "$APP_ID" >/dev/null 2>&1 || true
+                fi
+            fi
+        else
+            # Standard SIGTERM for other user processes (like btop, chrome, steam, etc.)
+            if [ -n "$P_USER" ] && [ "$P_USER" != "root" ]; then
+                log "Sending SIGTERM to $P_COMM (PID: $PID, User: $P_USER)"
+                kill -TERM "$PID" 2>/dev/null || true
+            fi
+        fi
+    done
+    
+    sleep 2 
+    
+    # --- STEP 2: Re-verify & Escalate (SIGKILL) ---
+    if fuser -s /dev/nvidia* 2>/dev/null || ( [ -n "$NVIDIA_DRI_CARD" ] && fuser -s "$NVIDIA_DRI_CARD" 2>/dev/null ); then
+        log "WARNING: Processes still holding GPU. Escalating to SIGKILL..."
+        
+        PIDS=$(fuser /dev/nvidia* "$NVIDIA_DRI_CARD" 2>/dev/null | tr -s ' ' '\n' | sort -u)
+        for PID in $PIDS; do
+            [ -z "$PID" ] || [ "$PID" == "1" ] && continue
+            
+            P_USER=$(ps -o user= -p "$PID" 2>/dev/null)
+            P_COMM=$(ps -o comm= -p "$PID" 2>/dev/null)
+            
+            # SAFETY FILTER: DO NOT SIGKILL THE COMPOSITOR OR SYSTEMD
+            if [[ "$P_COMM" =~ ^(kwin_wayland|kwin_x11|plasmashell|Xorg|Xwayland|gnome-shell|mutter|sway|hyprland|systemd|systemd-logind|polkit|sddm|gdm|lightdm)$ ]]; then
+                continue
+            fi
+
+            if [ -n "$P_USER" ] && [ "$P_USER" != "root" ]; then
+                log "Sending SIGKILL to $P_COMM (PID: $PID)"
+                kill -KILL "$PID" 2>/dev/null || true
+            fi
+        done
+        sleep 2
+    fi
+
+    # --- STEP 3: Final verification & The "Nuclear" Option ---
+    if fuser -s /dev/nvidia* 2>/dev/null || ( [ -n "$NVIDIA_DRI_CARD" ] && fuser -s "$NVIDIA_DRI_CARD" 2>/dev/null ); then
+        log "CRITICAL: Auto-kill failed. Stubborn processes (likely Wayland/KWin) are holding the GPU."
+        log "Stopping the Display Manager to forcefully release the GPU!"
+        
+        if systemctl is-active --quiet display-manager.service; then
+            systemctl stop display-manager.service
+            touch /tmp/vfio_dm_stopped
+        else
+            log "No active display-manager.service found. Force-killing compositors directly..."
+            killall -9 kwin_wayland Xwayland Xorg gnome-shell mutter sway hyprland 2>/dev/null
+        fi
+        
+        sleep 3
+        
+        if fuser -s /dev/nvidia* 2>/dev/null || ( [ -n "$NVIDIA_DRI_CARD" ] && fuser -s "$NVIDIA_DRI_CARD" 2>/dev/null ); then
+            log "FATAL: Display Manager stopped, but GPU is STILL held. System is in an unrecoverable state."
+            log "Restarting Display Manager and aborting."
+            systemctl start display-manager.service 2>/dev/null
+            rm -f /tmp/vfio_dm_stopped
+            exit 1
+        fi
+    fi
+    
+    log "Auto-kill successful. GPU is now free."
+    ABORT=false
+fi
+
+# 4. Unload Nvidia kernel modules
+log "Pre-Flight passed. Unloading Nvidia kernel modules..."
+modprobe -r nvidia_uvm 2>/dev/null
+modprobe -r nvidia_drm 2>/dev/null
+modprobe -r nvidia_modeset 2>/dev/null
+modprobe -r nvidia 2>/dev/null
+modprobe -r i2c_nvidia_gpu 2>/dev/null
+
+# 5. Final Fail-Safe Check
+if lsmod | grep -q nvidia; then
+    log "FATAL: Nvidia modules still loaded after modprobe -r! The GPU is locked by the kernel."
+    log "WARNING: Exiting 1 here may cause virtqemud to hang. Attempting to abort."
+    exit 1
+fi
+
+# NOTE: We no longer Detach PCI devices from host and bind to vfio-pci via 'virsh nodedev-detach' 
+# This 'RisingPrismTV guide' method is largely obsolete, from a time when "managed='yes'" was not as robust.
+# Libvirt handles the vfio-pci binding automatically via modern '<hostdev ... managed='yes'>' in the VM XML.
+
+log "=== Nvidia modules unloaded sucessfully. Libvirt will now bind VFIO and start VM... ==="

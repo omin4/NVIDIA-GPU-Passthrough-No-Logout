@@ -154,7 +154,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ## 🪟 Step 4: Configure Looking Glass Client on Arch
 
-[]
+[See My Looking Glass Guide: Installing](https://github.com/omin4/looking-glass-guide-arch-linux#1-installing)
 
 </br>
 
@@ -162,15 +162,15 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ## 🪟 Step 5: Configure Looking Glass IVSHMEM in VM XML
 
-[]
+[See My Looking Glass Guide: Configure Libvirt / QEMU XML](https://github.com/omin4/looking-glass-guide-arch-linux#3-configure-libvirt--qemu-xml)
 
 </br>
 
 ---
 
-## Step 6: Windows Guest Configuration
+## Step 6: Windows Guest Configuration (for Looking Glass)
 
-[]
+[See My Looking Glass Guide: Setting Up the Windows Guest](https://github.com/omin4/looking-glass-guide-arch-linux#4-setting-up-the-windows-guest)
 
 </br>
 
@@ -387,13 +387,21 @@ ___
 
 ## ⚙️ Step 9: Additional VM Tuning
 
-[]
+1. Find the `<memballoon>` tag and set its type to `none`
+
+2. CPU pinning. (Remember: view __Physical Cores__ and __Threads__ as pairs, e.g. `0,6`, `1,7`, `2,8`, etc...
+
+3. Add virtio mouse & keyboard:
+    1. - Create an `<input type='mouse' bus='virtio'/>` device, if you don’t already have one.
+    2. Create an `<input type='keyboard' bus='virtio'/>` device to improve keyboard usage.
+
+4. Be sure to set your CPU model type to `host-passthrough` so that your guest operating system is aware of the acceleration features of your CPU and can make full use of them.
 
 </br>
 
 ---
 
-## 📊🪟 Step 10: Workflow Configuration and Running Looking Glass Client
+## 🔀🪟 Step 10: Workflow Configuration and Running Looking Glass Client
 
 > - We'll be using the `virsh` terminal command to start and stop the VM.
 
@@ -427,13 +435,13 @@ ___
 
 2. Create a workflow cheatsheet:
 ```bash
-🎛️ WORKFLOW CHEAT SHEET 🎛️
+🔀 WORKFLOW CHEAT SHEET
 -----------------------------------
 Launch vm : vmstart
 Stop vm   : vmstop
 Help Menu     : vmhelp
 
-🎹 LOOKING GLASS KEYBINDS 
+🪟 LOOKING GLASS KEYBINDS
 (Press the [ ~ / ` ] key to toggle mouse capture. HOLD it to access shortcuts)
 -----------------------------------
 Toggle Capture: [ ~ ] (Grave/Backtick key)
@@ -499,5 +507,3 @@ Mute Guest    : [ ~ ] + F10
 4.  **Test Gaming:** Launch a game with `prime-run %command%` in Steam. Confirm it renders on Nvidia and displays on your Intel-connected monitor.
 
 </br>
-
----

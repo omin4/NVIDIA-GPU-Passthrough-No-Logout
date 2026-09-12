@@ -37,7 +37,7 @@ Since we have integrated graphics, *our setup is much more flexible and doesn't 
 
 ---
 
-## 🎯 Goal
+## Goal
 A frictionless workflow where you can:
 1.  Game on Arch Linux using `prime-run` (Nvidia renders, Intel displays).
 2.  Start a Windows VM that takes exclusive control of the Nvidia dGPU for hardware-accelerated Looking Glass.
@@ -45,7 +45,7 @@ A frictionless workflow where you can:
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 * More than 1 monitor/display
 * (Recommended) Arch Linux with KDE Plasma 6.6+ Wayland.
 * `qemu`, `libvirt`, `virt-manager` installed and working.
@@ -53,7 +53,7 @@ A frictionless workflow where you can:
 
 ---
 
-## 🔧 Step 1: BIOS/UEFI Settings
+## Step 1: BIOS/UEFI Settings
  
  Reboot and enter your BIOS/UEFI and make these changes. Some are a hard-requirement to allow for passthrough, and others are to maximize both VM stability and native Linux gaming performance.
  
@@ -79,7 +79,7 @@ A frictionless workflow where you can:
 
 ---
 
-## 🔌 Step 2: Physical Monitor Connection
+## Step 2: Physical Monitor Connection
 *   **iGPU Monitor:** Plug your monitors to the iGPU only. In other words, into the **motherboard's HDMI/DisplayPort**.
 * **dGPU Monitor:** Unplug all monitors. 
 > NOTE: If you **HAVEN'T** configured your system for Early KMS, then you can have a monitor plugged in--in fact we will need it later in the guide.
@@ -88,7 +88,7 @@ A frictionless workflow where you can:
 
 ---
 
-## ⚙️ Step 3: Kernel Parameters
+## Step 3: Kernel Parameters
 1. Edit whatever controls your kernel parameters. For me, it was *UKI*, for you it might be GRUB. (e.g. UKI: `/etc/kernel/cmdline`)
 
 2. **(/!\ CRUCIAL /!\\)** Delete these two parameters:
@@ -120,7 +120,7 @@ sudo sbctl verify
 
 ---
 
-## ⚙️ Step 3.5: (OPTIONAL) Hiding Your dGPU-Connected Monitor and Avoiding the Windows "Headless GPU" Problem
+## Step 3.5: (OPTIONAL) Hiding Your dGPU-Connected Monitor and Avoiding the Windows "Headless GPU" Problem
 
 > **NOTE:** While this is technically "optional," If you continue WITHOUT a monitor, you'll get a headless GPU scenario where Windows sees the GPU but doesn't use it. It's only optional in the sense that, you can get your dGPU to a state where nothing is holding it by unplugging everything.
 
@@ -152,7 +152,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ---
 
-## 🪟 Step 4: Configure Looking Glass Client on Arch
+## Step 4: Configure Looking Glass Client on Arch
 
 [See My Looking Glass Guide: Installing](https://github.com/omin4/looking-glass-guide-arch-linux#1-installing)
 
@@ -160,7 +160,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ---
 
-## 🪟 Step 5: Configure Looking Glass IVSHMEM in VM XML
+## Step 5: Configure Looking Glass IVSHMEM in VM XML
 
 [See My Looking Glass Guide: Configure Libvirt / QEMU XML](https://github.com/omin4/looking-glass-guide-arch-linux#3-configure-libvirt--qemu-xml)
 
@@ -176,7 +176,7 @@ Setting `modeset=0` disables Kernel Mode Setting (KMS) for the NVIDIA driver. It
 
 ---
 
-## ⏸️ Step 7. Before Running the Scripts
+## Step 7. Before Running the Scripts
 
 > NOTES: 
 > 1. Enable `sysrq` keys for REISUB just in case. Detaching a graphics card can be finicky; things can happen.
@@ -283,7 +283,7 @@ ___
 
 ---
 
-## 📜 Step 8: The Scripts (Wrapper + hook scripts)
+## Step 8: The Scripts (Wrapper + hook scripts)
 
 > **NOTES:**
 >
@@ -337,7 +337,7 @@ alias vmstop='virsh -c qemu:///system shutdown win11-4 && echo "⏳ Sending shut
 
 </br>
 
-### ▶️ Start Script
+### Start Script
 
 > **NOTES:**
 > - **Possible User Error 1:** Using the old, legacy `libvirtd` daemon.
@@ -369,7 +369,7 @@ ___
 >
 ___
 
-### ⏹️ End Script
+### End Script
 > - started by an alias in `.bashrc`
 > - Has logic that handles if the "nuclear option" was triggered
 > - Has an if statement that checks if the NVIDIA modules are already loaded.
@@ -385,7 +385,7 @@ ___
 
 ---
 
-## ⚙️ Step 9: Additional VM Tuning
+## Step 9: Additional VM Tuning
 
 1. Find the `<memballoon>` tag and set its type to `none`
 
@@ -401,7 +401,7 @@ ___
 
 ---
 
-## 🔀🪟 Step 10: Workflow Configuration and Running Looking Glass Client
+## Step 10: Workflow Configuration and Running Looking Glass Client
 
 > - We'll be using the `virsh` terminal command to start and stop the VM.
 
@@ -456,7 +456,7 @@ Mute Guest    : [ ~ ] + F10
 
 ---
 
-## 🎉 Final Summary / Check list
+## Final Summary Check list
 - [x] BIOS: IGD Primary
 - [x] Arch Host: KDE Plasma running on Intel iGPU, Nvidia driver idle
 - [x] Kernel: Removed `nvidia_drm.modeset=1` to prevent KWin from holding the dGPU
@@ -469,7 +469,7 @@ Mute Guest    : [ ~ ] + F10
 
 ---
 
-## 🚨 Troubleshooting Tips
+## Troubleshooting Tips
 
 * __Double check nothing is running on the dGPU__
     1. `nvidia-smi`
